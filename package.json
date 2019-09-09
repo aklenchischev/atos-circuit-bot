@@ -1,0 +1,17 @@
+{
+  "name": "circuit-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "botframework-directlinejs": "^0.11.4",
+    "circuit-sdk": "^1.2.6402",
+    "ws": "^7.1.2",
+    "xhr2": "^0.2.0"
+  }
+}
