@@ -1,9 +1,11 @@
 global.XMLHttpRequest = require('xhr2');
 global.WebSocket = require('ws');
 
-var config = require('./config.json');
 var Circuit = require('circuit-sdk');
 const { DirectLine } = require('botframework-directlinejs');
+
+var config = require('./config.json');
+var specialMessages = require('./special-messages.json');
 
 // Class that contains information about one conversation
 class Recipient {
@@ -122,9 +124,23 @@ var CircuitManager = function CircuitManager () {
 
         client.addTextItem(convId, {
                 parentId: parentId,
+                form: {
+                    id: '1',
+                    controls: [{
+                        type: 'LABEL',
+                        text: item
+                    }]
+                }
+            }
+        );
+
+        /*
+        client.addTextItem(convId, {
+                parentId: parentId,
                 content: item
             }
         );
+        */
     };
 };
 
@@ -176,6 +192,7 @@ var DirectLineManager = function DirectLineManager () {
 var RouteBot = function RouteBot () {
 
     var self = this;
+    var loginAttempts = 0;
 
     // Store a list of recipients
     var recipients = [];
@@ -202,7 +219,8 @@ var RouteBot = function RouteBot () {
             console.log("[ROUTER]: ERROR, COULDNT FIND RECIPIENT FOR dlConvId ", dlConvId);
         }
         else {
-            console.log("[ROUTER]: Sending message to Circuit recipient...");
+            
+            // TO DO: Create a form
             circuit.sendMessage(recipient.circuitConvId, recipient.circuitParentId, message.text);
         }
     };
@@ -220,7 +238,7 @@ var RouteBot = function RouteBot () {
     };
 
     // Find recipient in array by dlConvId to send message to Circuit
-    this.findRecipientByDirectLineConvId = function(dlConvId) {
+    this.findRecipientByDirectLineConvId = function findRecipientByDirectLineConvId(dlConvId) {
 
         for (var i = 0; i < recipients.length; i++) {
             if (recipients[i].dlManager.conversationId === dlConvId) {
@@ -234,10 +252,36 @@ var RouteBot = function RouteBot () {
     // Create new recipient
     this.createNewRecipient = function createNewRecipient(circuitConvId, circuitParentId, email) {
         
-        console.log("[ROUTER]: Creating new recipient for ", email);
+        console.log("[ROUTER]: Created new recipient for ", email);
         var newRecipient = new Recipient(circuitConvId, circuitParentId, new DirectLineManager(), email);
         recipients.push(newRecipient);
         return newRecipient;
+    };
+
+    // Check if bot wants to get user's email. If he asks for 5 times in a row 
+    // send to Circuit appropriate message and delete this recipient
+    this.interruptToLogin = function interruptToLogin(message) {
+
+        if (!checkForEmailAsking(message)) {
+            loginAttempts = 0;
+            return true;
+        }
+        else if (loginAttempts < 5) {
+            loginAttempts++;
+            return false;
+        }
+
+        return false;
+    };
+
+    // Check message for Email asking
+    this.checkForEmailAsking = function checkForEmailAsking(message) {
+
+        if (message === specialMessages.email_prompt || messsage === specialMessages.email_reprompt) {
+            return true;
+        }
+
+        return false;
     };
 };
 
