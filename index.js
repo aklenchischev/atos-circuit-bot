@@ -120,27 +120,9 @@ var CircuitManager = function CircuitManager () {
     };
 
     // Send message
-    this.sendMessage = function sendMessage(convId, parentId, item) {
+    this.sendMessage = function sendMessage(convId, item) {
 
-        client.addTextItem(convId, {
-                parentId: parentId,
-                form: {
-                    id: '1',
-                    controls: [{
-                        type: 'LABEL',
-                        text: item
-                    }]
-                }
-            }
-        );
-
-        /*
-        client.addTextItem(convId, {
-                parentId: parentId,
-                content: item
-            }
-        );
-        */
+        client.addTextItem(convId, item);
     };
 };
 
@@ -219,9 +201,73 @@ var RouteBot = function RouteBot () {
             console.log("[ROUTER]: ERROR, COULDNT FIND RECIPIENT FOR dlConvId ", dlConvId);
         }
         else {
+
+            // Check for email asking
+            var askedForEmail = self.botAskedForEmail(message.text);
             
-            // TO DO: Create a form
-            circuit.sendMessage(recipient.circuitConvId, recipient.circuitParentId, message.text);
+            if (askedForEmail) {
+
+                console.log("[ROUTER]: Bot asked for email");
+                // Limit for login attempts is reached
+                if (loginAttempts >= 3) {
+                    
+                    var item = {
+                        content: specialMessages.login_error_message,
+                        parentId: recipient.circuitParentId,
+                    }
+
+                    circuit.sendMessage(recipient.circuitConvId, item);
+                    self.deleteRecipient(recipient.circuitConvId, recipient.email);
+                }
+                else {
+                    // Send user's email to bot
+                    recipient.dlManager.sendMessage(recipient.email, recipient.email);
+                }
+            }
+            else {
+
+                // Create a form for only text
+                var item = {
+                    content: message.text,
+                    parentId: recipient.circuitParentId,
+                }
+
+                // Check that message contains suggested actions
+                if (message.suggestedActions !== undefined) {
+
+                    // Create an array with suggested actions
+                    var actions = message.suggestedActions.actions;
+                    var options = [];
+                    actions.forEach(
+                        function(action) {
+                            var { type, title, value } = action;
+                            var option = {
+                                text: value,
+                                value: value,
+                                notification: "Form submitted"
+                            }
+
+                            console.log("[TEST]: Pushing option ", option);
+                            options.push(option);
+                        }
+                    );
+
+                    // Create an empty form
+                    var form = {
+                        id: message.id,
+                        controls: [{
+                            type: 'BUTTON',
+                            name: 'actions',
+                            options: options
+                        }]
+                    }
+
+                    item.form = form;
+                    console.log("[TEST]: item to send ", item);
+                }
+
+                circuit.sendMessage(recipient.circuitConvId, item);
+            }
         }
     };
 
@@ -252,32 +298,45 @@ var RouteBot = function RouteBot () {
     // Create new recipient
     this.createNewRecipient = function createNewRecipient(circuitConvId, circuitParentId, email) {
         
-        console.log("[ROUTER]: Created new recipient for ", email);
         var newRecipient = new Recipient(circuitConvId, circuitParentId, new DirectLineManager(), email);
         recipients.push(newRecipient);
+
+        console.log("[ROUTER]: Created new recipient for ", email);
         return newRecipient;
     };
 
+    // Remove recipient from array
+    this.deleteRecipient = function deleteRecipient(circuitConvId, email) {
+
+        for (var i = 0; i < recipients.length; i++) {
+            if (recipients[i].circuitConvId === circuitConvId &&
+                recipients[i].email === email) {
+                    recipients.slice(i, 1);
+                    console.log("[ROUTER]: Deleted recipient for ", email);
+                }
+        }
+    }
+
     // Check if bot wants to get user's email. If he asks for 5 times in a row 
     // send to Circuit appropriate message and delete this recipient
-    this.interruptToLogin = function interruptToLogin(message) {
+    this.botAskedForEmail = function botAskedForEmail(message) {
 
-        if (!checkForEmailAsking(message)) {
+        if (!self.checkForEmailAsking(message)) {
             loginAttempts = 0;
-            return true;
+            return false;
         }
         else if (loginAttempts < 5) {
             loginAttempts++;
-            return false;
+            return true;
         }
 
-        return false;
+        return true;
     };
 
     // Check message for Email asking
     this.checkForEmailAsking = function checkForEmailAsking(message) {
 
-        if (message === specialMessages.email_prompt || messsage === specialMessages.email_reprompt) {
+        if (message === specialMessages.email_prompt || message === specialMessages.email_reprompt) {
             return true;
         }
 

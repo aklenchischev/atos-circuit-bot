@@ -1,4 +1,5 @@
 {
     "email_prompt": "Email prompt",
-    "email_reprompt": "Email reprompt"
+    "email_reprompt": "Email reprompt",
+    "login_error_message": "Hello! You should get an account <a href=\"https://evgeny-khmurovskiy.outsystemscloud.com/MyPlaceBooking_Web/\">here</a> to use this bot"
 }
