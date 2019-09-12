@@ -79,11 +79,23 @@ var CircuitManager = function CircuitManager () {
             self.receiveItem(event.item);
         });
 
-        // TO DO: Handle a form submission
+        // Handle a form submission
         client.addEventListener('formSubmission', function (event) {
-            var formData = event.form;
-            console.log(event);
-            console.log(formData);
+            console.log("[TEST: Event - ", event);
+
+            var submittedValue = event.form.data[0].value;
+            console.log("[CIRCUIT]: Form was submitted with value ", submittedValue);
+
+            // Create an item to send to DirectLine
+            var item = {
+                type: 'TEXT',
+                creatorId: event.submitterId,
+                text: {
+                    content: submittedValue
+                }
+            }
+
+            self.receiveItem(item);
         });
     };
 
@@ -186,7 +198,7 @@ var RouteBot = function RouteBot () {
         if (recipient === undefined) {
             recipient = self.createNewRecipient(convId, parentId, email);
         }
-        else {
+        else if (parentId !== undefined) {
             recipient.circuitParentId = parentId;
         }
 
@@ -226,7 +238,7 @@ var RouteBot = function RouteBot () {
             }
             else {
 
-                // Create a form for only text
+                // Create an item with text
                 var item = {
                     content: message.text,
                     parentId: recipient.circuitParentId,
@@ -244,10 +256,10 @@ var RouteBot = function RouteBot () {
                             var option = {
                                 text: value,
                                 value: value,
-                                notification: "Form submitted"
+                                notification: "Form submitted",
+                                action: 'submit'
                             }
 
-                            console.log("[TEST]: Pushing option ", option);
                             options.push(option);
                         }
                     );
@@ -263,7 +275,6 @@ var RouteBot = function RouteBot () {
                     }
 
                     item.form = form;
-                    console.log("[TEST]: item to send ", item);
                 }
 
                 circuit.sendMessage(recipient.circuitConvId, item);
