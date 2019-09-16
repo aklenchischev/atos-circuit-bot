@@ -7,6 +7,8 @@ const { DirectLine } = require('botframework-directlinejs');
 var config = require('./config.json');
 var specialMessages = require('./special-messages.json');
 
+var sql = require('mssql');
+
 // Class that contains information about one conversation
 class Recipient {
     constructor(circuitConvId, circuitParentId, dlManager, email) {
@@ -43,10 +45,16 @@ var CircuitManager = function CircuitManager () {
                     domain: config.domain,
                     autoRenewToken: true
                 });
+
+                console.log('[CIRCUIT]: Circuit client created successfully');
                 
+                console.log('[CIRCUIT]: Subscribing to events...');
                 // Register event listeners
                 self.addEventListeners(client); 
 
+                console.log('[CIRCUIT]: Subscribed to events successfully');
+
+                console.log('[CIRCUIT]: Trying to log on...');
                 // Logon to Circuit
                 client.logon()
                 .then(
@@ -68,8 +76,6 @@ var CircuitManager = function CircuitManager () {
 
     // Subscribe to events
     this.addEventListeners = function addEventListeners(client) {
-
-        console.log('[CIRCUIT]: Subscribing to events...');
 
         client.addEventListener('itemAdded', function (event) {
             self.receiveItem(event.item);
@@ -163,7 +169,11 @@ var DirectLineManager = function DirectLineManager () {
     
     // Receive message
     this.messageReceived = function messageReceived (message) {
-        self.conversationId = message.conversation.id;
+
+        if (self.conversationId === null) {
+            self.conversationId = message.conversation.id;
+            router.saveRecipientToDatabase(self.conversationId);
+        }
         router.sendMessageToCircuit(self.conversationId, message);
     };
 
@@ -190,6 +200,18 @@ var RouteBot = function RouteBot () {
 
     // Store a list of recipients
     var recipients = [];
+
+    // Create a configuration object for our Azure SQL connection parameters
+    var dbConfig = {
+        server: config.db_server,
+        database: config.database,
+        user: config.db_user,
+        password: config.db_password,
+        port: 1433,
+        options: {
+            encrypt: true
+        }
+    };
 
     this.sendMessageToDirectLine = function sendMessageToDirectLine(convId, parentId, email, message) {
 
@@ -352,6 +374,58 @@ var RouteBot = function RouteBot () {
         }
 
         return false;
+    };
+
+    // Save recipient to database
+    this.saveRecipientToDatabase = function saveRecipientToDatabase(dlConvId) {
+
+        var recipient = self.findRecipientByDirectLineConvId(dlConvId);
+        if (recipient === undefined) {
+            console.log("[ROUTER]: ERROR. Unabled to find recipient to save to database");
+        }
+        else {
+            console.log("[ROUTER]: Saving recipient to database...");
+
+            // Create connection instance
+            var conn =  new sql.ConnectionPool(dbConfig);
+
+            conn.connect()
+            // Successfull connection
+            .then(
+                function() {
+                    // Create request instance, passing in connection instance
+                    var req = new sql.Request(conn);
+
+                    // Define insert query
+                    var query = `INSERT INTO ${config.recipients_table} VALUES ('${recipient.dlManager.conversationId}', '${recipient.circuitConvId}', '${recipient.circuitParentId}', '${recipient.email}')`;
+
+                    console.log("[TEST]: Query is ", query);
+
+                    // Call mssql's query method passing in params
+                    req.query(query)
+                    .then(
+                        function() {
+                            console.log("[ROUTER]: Recipient was successfully saved to database");
+                            conn.close();
+                        }
+                    )
+                    // Handle sql statement execution errors
+                    .catch(
+                        function(err) {
+                            console.log("[ROUTER]: ERROR when try to execute query ", err);
+                            conn.close();
+                        }
+                    )
+                }
+            )
+            // Handle connection errors
+            .catch(
+                function (err) {
+                    console.log("[ROUTER]: ERROR when try to connect to database ", err);
+                    conn.close();
+                }
+            );
+        }
     };
 };
 
