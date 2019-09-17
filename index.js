@@ -87,7 +87,6 @@ var CircuitManager = function CircuitManager () {
 
         // Handle a form submission
         client.addEventListener('formSubmission', function (event) {
-            console.log("[TEST: Event - ", event);
 
             var submittedValue = event.form.data[0].value;
             console.log("[CIRCUIT]: Form was submitted with value ", submittedValue);
@@ -147,14 +146,15 @@ var CircuitManager = function CircuitManager () {
 //*********************************************************************
 //* DirectLine
 //*********************************************************************
-var DirectLineManager = function DirectLineManager () {
+var DirectLineManager = function DirectLineManager (convToReconnectId) {
     
     var self = this;
 
-    this.conversationId = null;
+    this.conversationId = convToReconnectId;
 
     this.directLineChannel = new DirectLine({
-        secret: config.directline_secret
+        secret: config.directline_secret,
+        conversationId: convToReconnectId
     });
     
     // Subscribe to bot's messages
@@ -162,7 +162,7 @@ var DirectLineManager = function DirectLineManager () {
     .filter(activity => activity.type === 'message' && activity.from.id === 'atos-booking-bot')
     .subscribe(
         function (message) {
-            console.log("[DIRECTLINE]: Received message ", message);
+            console.log("[DIRECTLINE]: Received message ", message.text);
             self.messageReceived(message);
         }
     );
@@ -216,15 +216,37 @@ var RouteBot = function RouteBot () {
     this.sendMessageToDirectLine = function sendMessageToDirectLine(convId, parentId, email, message) {
 
         var recipient = self.findRecipientByEmail(email);
-
         if (recipient === undefined) {
-            recipient = self.createNewRecipient(convId, parentId, email);
+
+            recipient = self.getRecipientFromDatabase(convId)
+            .then(
+                function(result) {
+
+                    if (result === undefined) {
+                        recipient = self.createNewRecipient(convId, parentId, email);
+                    }
+                    else {
+                        recipient = result;
+                    }
+
+                    recipient.circuitParentId = parentId;
+                    self.updateRecipientOnDatabase(recipient);
+
+                    recipient.dlManager.sendMessage(message, email);
+                },
+                function(error) {
+                    console.log('[ROUTER]: Error while loading recipient from database ', error);
+                }
+            );
         }
         else if (parentId !== undefined) {
             recipient.circuitParentId = parentId;
+            self.updateRecipientOnDatabase(recipient);
+            recipient.dlManager.sendMessage(message, email);
         }
-
-        recipient.dlManager.sendMessage(message, email);
+        else {
+            recipient.dlManager.sendMessage(message, email);
+        }
     };
 
     this.sendMessageToCircuit = function sendMessageToCircuit(dlConvId, message) {
@@ -331,7 +353,7 @@ var RouteBot = function RouteBot () {
     // Create new recipient
     this.createNewRecipient = function createNewRecipient(circuitConvId, circuitParentId, email) {
         
-        var newRecipient = new Recipient(circuitConvId, circuitParentId, new DirectLineManager(), email);
+        var newRecipient = new Recipient(circuitConvId, circuitParentId, new DirectLineManager(null), email);
         recipients.push(newRecipient);
 
         console.log("[ROUTER]: Created new recipient for ", email);
@@ -346,6 +368,7 @@ var RouteBot = function RouteBot () {
                 recipients[i].email === email) {
                     recipients.slice(i, 1);
                     console.log("[ROUTER]: Deleted recipient for ", email);
+                    self.deleteRecipientFromDatabase(circuitConvId, email);
                 }
         }
     }
@@ -399,8 +422,6 @@ var RouteBot = function RouteBot () {
                     // Define insert query
                     var query = `INSERT INTO ${config.recipients_table} VALUES ('${recipient.dlManager.conversationId}', '${recipient.circuitConvId}', '${recipient.circuitParentId}', '${recipient.email}')`;
 
-                    console.log("[TEST]: Query is ", query);
-
                     // Call mssql's query method passing in params
                     req.query(query)
                     .then(
@@ -412,7 +433,7 @@ var RouteBot = function RouteBot () {
                     // Handle sql statement execution errors
                     .catch(
                         function(err) {
-                            console.log("[ROUTER]: ERROR when try to execute query ", err);
+                            console.log("[ROUTER]: ERROR when try to execute insert query ", err);
                             conn.close();
                         }
                     )
@@ -421,11 +442,154 @@ var RouteBot = function RouteBot () {
             // Handle connection errors
             .catch(
                 function (err) {
-                    console.log("[ROUTER]: ERROR when try to connect to database ", err);
+                    console.log("[ROUTER]: ERROR when try to connect to database on insert query", err);
                     conn.close();
                 }
             );
         }
+    };
+
+    // Update recipient on database
+    this.updateRecipientOnDatabase = function updateRecipientOnDatabase(recipient) {
+
+        console.log("[ROUTER]: Updating recipient on database...");
+
+        // Create connection instance
+        var conn =  new sql.ConnectionPool(dbConfig);
+
+        conn.connect()
+        // Successfull connection
+        .then(
+            function() {
+                // Create request instance, passing in connection instance
+                var req = new sql.Request(conn);
+
+                // Define update query
+                var query = `UPDATE ${config.recipients_table} SET CircuitParentId = '${recipient.circuitParentId}' WHERE DirectLineConvId = '${recipient.dlManager.conversationId}'`;
+
+                // Call mssql's query method passing in params
+                req.query(query)
+                .then(
+                    function() {
+                        console.log("[ROUTER]: Recipient was successfully updated on database");
+                        conn.close();
+                    }
+                )
+                // Handle sql statement execution errors
+                .catch(
+                    function(err) {
+                        console.log("[ROUTER]: ERROR when try to execute update query ", err);
+                        conn.close();
+                    }
+                )
+            }
+        )
+        // Handle connection errors
+        .catch(
+            function (err) {
+                console.log("[ROUTER]: ERROR when try to connect to database on update query", err);
+                conn.close();
+            }
+        );
+    };
+
+    // Delete recipient from database
+    this.deleteRecipientFromDatabase = function deleteRecipientFromDatabase(circuitConvId, email) {
+        console.log("[ROUTER]: Removing recipient from database...");
+
+        // Create connection instance
+        var conn =  new sql.ConnectionPool(dbConfig);
+
+        conn.connect()
+        // Successfull connection
+        .then(
+            function() {
+                // Create request instance, passing in connection instance
+                var req = new sql.Request(conn);
+
+                // Define delete query
+                var query = `DELETE ${config.recipients_table} WHERE CircuitConvId = '${circuitConvId}' AND Email = '${email}'`;
+
+                // Call mssql's query method passing in params
+                req.query(query)
+                .then(
+                    function() {
+                        console.log("[ROUTER]: Recipient was successfully deleted from database");
+                        conn.close();
+                    }
+                )
+                // Handle sql statement execution errors
+                .catch(
+                    function(err) {
+                        console.log("[ROUTER]: ERROR when try to execute delete query ", err);
+                        conn.close();
+                    }
+                )
+            }
+        )
+        // Handle connection errors
+        .catch(
+            function (err) {
+                console.log("[ROUTER]: ERROR when try to connect to database on delete query", err);
+                conn.close();
+            }
+        );
+    };
+
+    // Get recipient from database
+    this.getRecipientFromDatabase = function getRecipientFromDatabase(convId) {
+
+        return new Promise(
+            function (resolve, reject) {
+                console.log("[ROUTER]: Searching for recipient on database...");
+
+                // Create connection instance
+                var conn =  new sql.ConnectionPool(dbConfig);
+
+                conn.connect()
+                // Successfull connection
+                .then(
+                    function() {
+                        // Create request instance, passing in connection instance
+                        var req = new sql.Request(conn);
+
+                        // Define select query
+                        var query = `SELECT TOP(1) * FROM ${config.recipients_table} WHERE CircuitConvId = '${convId}'`;
+
+                        // Call mssql's query method passing in params
+                        req.query(query)
+                        .then(
+                            function(recordSet) {
+                        
+                                conn.close();
+                                if (recordSet.recordset[0] === undefined) {
+                                    return resolve(undefined);
+                                }
+
+                                var newRecipient = new Recipient(recordSet.recordset[0].CircuitConvId, recordSet.recordset[0].CircuitParentId, new DirectLineManager(recordSet.recordset[0].DirectLineConvId), recordSet.recordset[0].Email);
+                                recipients.push(newRecipient);
+                        
+                                return resolve(newRecipient);
+                            }
+                        )
+                        // Handle sql statement execution errors
+                        .catch(
+                            function(err) {
+                                console.log("[ROUTER]: ERROR when try to execute select query ", err);
+                                conn.close();
+                            }
+                        )
+                    }
+                )
+                // Handle connection errors
+                .catch(
+                    function (err) {
+                        console.log("[ROUTER]: ERROR when try to connect to database on select query", err);
+                        conn.close();
+                    }
+                );
+            }
+        );
     };
 };
 
