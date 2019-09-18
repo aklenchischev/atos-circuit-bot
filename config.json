@@ -3,7 +3,7 @@
     "client_secret"      : "1eb8dac2ff934daf8ede5227a4d8afc9",
     "domain"             : "circuitsandbox.net",
     "directline_secret"  : "F5FIcnBoc50.gtc7Ck13qXU6qOJM2v9LjSdrleQRHGNsjx7abgWaXWg",
-    "db_server"          : "circuit-bot-sql-server-prod.database.windows.net",
+    "db_server"          : "circuit-bot-sql-server.database.windows.net",
     "database"           : "circuit-bot-sql-db-prod",
     "recipients_table"   : "dbo.Recipients",
     "db_user"            : "aklenchischev",
