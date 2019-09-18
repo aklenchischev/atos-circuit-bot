@@ -2,10 +2,11 @@
     "client_id"          : "63242cd9f2d2474186624294255b0208",
     "client_secret"      : "1eb8dac2ff934daf8ede5227a4d8afc9",
     "domain"             : "circuitsandbox.net",
-    "directline_secret"  : "Dy0PCajU0Co.x0aHA33AGfV-3UMpBFE0pgymhaoPe4WahCx3I8jyUhk",
-    "db_server"          : "circuit-bot-server.database.windows.net",
-    "database"           : "circuit-bot-db",
+    "directline_secret"  : "F5FIcnBoc50.gtc7Ck13qXU6qOJM2v9LjSdrleQRHGNsjx7abgWaXWg",
+    "db_server"          : "circuit-bot-sql-server-prod.database.windows.net",
+    "database"           : "circuit-bot-sql-db-prod",
     "recipients_table"   : "dbo.Recipients",
-    "db_user"            : "atosbookingbot",
-    "db_password"        : "CXkTQid8~CXkTQid8"
+    "db_user"            : "aklenchischev",
+    "db_password"        : "CXkTQid8~CXkTQid8",
+    "bot_name"           : "booking-bot-prod"
 }

@@ -1,3 +1,16 @@
+const http = require('http');
+const port=process.env.PORT || 3000
+
+const server = http.createServer((req, res) => {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html');
+    res.end('<h1>Hello World</h1>');
+});
+
+server.listen(port,() => {
+    console.log(`Server running at port `+port);
+});
+
 global.XMLHttpRequest = require('xhr2');
 global.WebSocket = require('ws');
 
@@ -159,7 +172,7 @@ var DirectLineManager = function DirectLineManager (convToReconnectId) {
     
     // Subscribe to bot's messages
     self.directLineChannel.activity$
-    .filter(activity => activity.type === 'message' && activity.from.id === 'atos-booking-bot')
+    .filter(activity => activity.type === 'message' && activity.from.id === config.bot_name)
     .subscribe(
         function (message) {
             console.log("[DIRECTLINE]: Received message ", message.text);
@@ -560,9 +573,10 @@ var RouteBot = function RouteBot () {
                         req.query(query)
                         .then(
                             function(recordSet) {
-                        
+                                
                                 conn.close();
                                 if (recordSet.recordset[0] === undefined) {
+                                    console.log("[ROUTER]: Recipient not founded in database");
                                     return resolve(undefined);
                                 }
 
