@@ -113,6 +113,18 @@ var CircuitManager = function CircuitManager () {
                 }
             }
 
+            client.updateTextItem({
+                itemId: event.itemId,
+                form: {
+                    id: event.form.id,
+                    // content: ???,
+                    controls: [{
+                        type: 'LABEL',
+                        text: submittedValue
+                    }]
+                }
+            });
+
             self.receiveItem(item);
         });
     };
@@ -151,7 +163,6 @@ var CircuitManager = function CircuitManager () {
 
     // Send message
     this.sendMessage = function sendMessage(convId, item) {
-
         client.addTextItem(convId, item);
     };
 };
@@ -182,8 +193,9 @@ var DirectLineManager = function DirectLineManager (convToReconnectId) {
     
     // Receive message
     this.messageReceived = function messageReceived (message) {
-
+        
         if (self.conversationId === null) {
+
             self.conversationId = message.conversation.id;
             router.saveRecipientToDatabase(self.conversationId);
         }
@@ -231,7 +243,7 @@ var RouteBot = function RouteBot () {
         var recipient = self.findRecipientByEmail(email);
         if (recipient === undefined) {
 
-            recipient = self.getRecipientFromDatabase(convId)
+            recipient = self.getRecipientFromDatabase(email)
             .then(
                 function(result) {
 
@@ -242,8 +254,10 @@ var RouteBot = function RouteBot () {
                         recipient = result;
                     }
 
-                    recipient.circuitParentId = parentId;
-                    self.updateRecipientOnDatabase(recipient);
+                    if (parentId !== undefined) {
+                        recipient.circuitParentId = parentId;
+                        self.updateRecipientOnDatabase(recipient);
+                    }
 
                     recipient.dlManager.sendMessage(message, email);
                 },
@@ -263,7 +277,7 @@ var RouteBot = function RouteBot () {
     };
 
     this.sendMessageToCircuit = function sendMessageToCircuit(dlConvId, message) {
-
+        
         var recipient = self.findRecipientByDirectLineConvId(dlConvId);
 
         if (recipient === undefined) {
@@ -273,7 +287,6 @@ var RouteBot = function RouteBot () {
 
             // Check for email asking
             var askedForEmail = self.botAskedForEmail(message.text);
-            
             if (askedForEmail) {
 
                 console.log("[ROUTER]: Bot asked for email");
@@ -294,13 +307,11 @@ var RouteBot = function RouteBot () {
                 }
             }
             else {
-
                 // Create an item with text
                 var item = {
                     content: message.text,
                     parentId: recipient.circuitParentId,
                 }
-
                 // Check that message contains suggested actions
                 if (message.suggestedActions !== undefined) {
 
@@ -333,7 +344,6 @@ var RouteBot = function RouteBot () {
 
                     item.form = form;
                 }
-
                 circuit.sendMessage(recipient.circuitConvId, item);
             }
         }
@@ -550,7 +560,7 @@ var RouteBot = function RouteBot () {
     };
 
     // Get recipient from database
-    this.getRecipientFromDatabase = function getRecipientFromDatabase(convId) {
+    this.getRecipientFromDatabase = function getRecipientFromDatabase(email) {
 
         return new Promise(
             function (resolve, reject) {
@@ -567,7 +577,7 @@ var RouteBot = function RouteBot () {
                         var req = new sql.Request(conn);
 
                         // Define select query
-                        var query = `SELECT TOP(1) * FROM ${config.recipients_table} WHERE CircuitConvId = '${convId}'`;
+                        var query = `SELECT TOP(1) * FROM ${config.recipients_table} WHERE Email = '${email}'`;
 
                         // Call mssql's query method passing in params
                         req.query(query)
