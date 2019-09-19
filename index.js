@@ -104,6 +104,26 @@ var CircuitManager = function CircuitManager () {
             var submittedValue = event.form.data[0].value;
             console.log("[CIRCUIT]: Form was submitted with value ", submittedValue);
 
+            // Remove buttons from form
+            client.getItemById(event.itemId)
+            .then(
+                function (itemInfo) {
+
+                    console.log('[TEST]: itemInfo', itemInfo);
+                    client.updateTextItem({
+                        itemId: event.itemId,
+                        content: itemInfo.text.content,
+                        form: {
+                            id: event.form.id,
+                            controls: [{
+                                type: 'LABEL',
+                                text: submittedValue
+                            }]
+                        }
+                    });
+                }
+            );
+        
             // Create an item to send to DirectLine
             var item = {
                 type: 'TEXT',
@@ -112,18 +132,6 @@ var CircuitManager = function CircuitManager () {
                     content: submittedValue
                 }
             }
-
-            client.updateTextItem({
-                itemId: event.itemId,
-                form: {
-                    id: event.form.id,
-                    // content: ???,
-                    controls: [{
-                        type: 'LABEL',
-                        text: submittedValue
-                    }]
-                }
-            });
 
             self.receiveItem(item);
         });
@@ -164,6 +172,10 @@ var CircuitManager = function CircuitManager () {
     // Send message
     this.sendMessage = function sendMessage(convId, item) {
         client.addTextItem(convId, item);
+    };
+
+    // Check that submitted form is expired
+    this.isFormExpired = function isFormExpired(itemId, creatorId) {
     };
 };
 
