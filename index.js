@@ -455,7 +455,7 @@ var RouteBot = function RouteBot () {
                     var req = new sql.Request(conn);
 
                     // Define insert query
-                    var query = `INSERT INTO ${config.recipients_table} VALUES ('${recipient.dlManager.conversationId}', '${recipient.circuitConvId}', '${recipient.circuitParentId}', '${recipient.email}')`;
+                    var query = `INSERT INTO ${config.recipients_table} (DirectLineConvId, CircuitConvId, CircuitParentId, Email) VALUES ('${recipient.dlManager.conversationId}', '${recipient.circuitConvId}', '${recipient.circuitParentId}', '${recipient.email}')`;
 
                     // Call mssql's query method passing in params
                     req.query(query)
