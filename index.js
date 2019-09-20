@@ -1,5 +1,5 @@
 const http = require('http');
-const port=process.env.PORT || 3000
+const port = process.env.PORT || 3000
 
 const server = http.createServer((req, res) => {
     res.statusCode = 200;
@@ -8,7 +8,7 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port,() => {
-    console.log(`Server running at port `+port);
+    console.log(`[APP]: Server running at port `+port);
 });
 
 global.XMLHttpRequest = require('xhr2');
@@ -109,7 +109,6 @@ var CircuitManager = function CircuitManager () {
             .then(
                 function (itemInfo) {
 
-                    console.log('[TEST]: itemInfo', itemInfo);
                     client.updateTextItem({
                         itemId: event.itemId,
                         content: itemInfo.text.content,
@@ -157,14 +156,25 @@ var CircuitManager = function CircuitManager () {
             return;
         }
 
-        console.log('[CIRCUIT]: Content of item: ', item.text.content);
-
-        // Send message to DirectLine
-        client.getUserById(item.creatorId)
+        client.getConversationById(item.convId)
         .then(
-            function (user) {
-                router.sendMessageToDirectLine(item.convId, 
-                    (item.parentItemId) ? item.parentItemId : item.itemId, user.emailAddress, item.text.content);
+            function(conv) {
+
+                if (conv.type === "DIRECT") {
+                    console.log('[CIRCUIT]: Content of item: ', item.text.content);
+
+                    // Send message to DirectLine
+                    client.getUserById(item.creatorId)
+                    .then(
+                        function (user) {
+                            router.sendMessageToDirectLine(item.convId, 
+                                (item.parentItemId) ? item.parentItemId : item.itemId, user.emailAddress, item.text.content);
+                        }
+                    );
+                }
+                else {
+                    console.log('[CIRCUIT]: Skip message from multi-user conversation');
+                }
             }
         );
     };
@@ -172,10 +182,6 @@ var CircuitManager = function CircuitManager () {
     // Send message
     this.sendMessage = function sendMessage(convId, item) {
         client.addTextItem(convId, item);
-    };
-
-    // Check that submitted form is expired
-    this.isFormExpired = function isFormExpired(itemId, creatorId) {
     };
 };
 
@@ -293,7 +299,7 @@ var RouteBot = function RouteBot () {
         var recipient = self.findRecipientByDirectLineConvId(dlConvId);
 
         if (recipient === undefined) {
-            console.log("[ROUTER]: ERROR, COULDNT FIND RECIPIENT FOR dlConvId ", dlConvId);
+            console.log("[ROUTER]: ERROR, COULDN\'T FIND RECIPIENT FOR dlConvId ", dlConvId);
         }
         else {
 
