@@ -1,8 +1,8 @@
 {
-  "name": "circuit-bot-v2",
+  "name": "circuit-bot",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "app/index.js",
   "scripts": {
     "start": "node app/index.js"
   },
