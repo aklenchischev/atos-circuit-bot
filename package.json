@@ -1,10 +1,10 @@
 {
-  "name": "circuit-bot",
+  "name": "circuit-bot-v2",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node app/index.js"
   },
   "author": "",
   "license": "ISC",
@@ -12,6 +12,7 @@
     "botframework-directlinejs": "^0.11.4",
     "circuit-sdk": "^1.2.6402",
     "mssql": "^5.1.0",
+    "winston": "^3.2.1",
     "ws": "^7.1.2",
     "xhr2": "^0.2.0"
   }

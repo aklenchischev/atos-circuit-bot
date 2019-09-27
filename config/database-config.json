@@ -1,0 +1,7 @@
+{
+    "db_server"          : "circuit-bot-sql-server.database.windows.net",
+    "database"           : "circuit-bot-sql-db-dev",
+    "recipients_table"   : "dbo.Recipients",
+    "db_user"            : "aklenchischev",
+    "db_password"        : "CXkTQid8~CXkTQid8"
+}
